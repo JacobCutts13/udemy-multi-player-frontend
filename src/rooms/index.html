@@ -1,106 +1,161 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <title>Socket.io</title>
+<!doctype html>
+<html>
+
+<head>
+    <title>Socket.IO rooms</title>
     <style>
-      body {
-        margin: 0;
-        padding-bottom: 3rem;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          Helvetica, Arial, sans-serif;
-      }
-
-      #form {
-        background: rgba(0, 0, 0, 0.15);
-        padding: 0.25rem;
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        display: flex;
-        height: 3rem;
-        box-sizing: border-box;
-        backdrop-filter: blur(10px);
-      }
-
-      #input {
-        border: none;
-        padding: 0 1rem;
-        flex-grow: 1;
-        border-radius: 2rem;
-        margin: 0.25rem;
-      }
-
-      #input:focus {
-        outline: none;
-      }
-
-      #form > button {
-        background: #333;
-        border: none;
-        padding: 0 1rem;
-        margin: 0.25rem;
-        border-radius: 3px;
-        outline: none;
-        color: #fff;
-      }
-
-      #messages {
-        list-style-type: none;
-        margin: 0;
-        padding: 0;
-      }
-
-      #messages > li {
-        padding: 0.5rem 1rem;
-      }
-
-      #messages > li:nth-child(odd) {
-        background: #efefef;
-      }
-    </style>
-    <script
-      src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"
-      type="text/javascript"
-    ></script>
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-      $(document).ready(() => {
-        const socket = io();
-
-        const form = document.getElementById("form");
-        const input = document.getElementById("input");
-
-        if (form && input) {
-          form.addEventListener("submit", function (e) {
-            e.preventDefault();
-            if (input.value) {
-              const newMsg = document.createElement("li");
-              newMsg.textContent = input.value;
-              messages.appendChild(newMsg);
-              window.scrollTo(0, document.body.scrollHeight);
-              socket.emit("chat message", input.value);
-              input.value = ""; //clear input
-            }
-          });
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
-        socket.on("chat message", (msg) => {
-          const newMsg = document.createElement("li");
-          newMsg.textContent = msg;
-          messages.appendChild(newMsg);
-          window.scrollTo(0, document.body.scrollHeight);
-        });
-      });
-    </script>
-  </head>
 
-  <body>
-    <ul id="messages"></ul>
-    <form id="form" action="">
-      <input id="input" autocomplete="off" /><button>Send</button>
+        body {
+            font: 13px Helvetica, Arial;
+        }
+
+        form {
+            background: #000;
+            padding: 3px;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+
+        form input {
+            border: 0;
+            padding: 10px;
+            width: 84%;
+            margin-right: .5%;
+        }
+
+        form button {
+            width: 15%;
+            background: rgb(130, 224, 255);
+            border: none;
+            padding: 10px;
+        }
+
+        #room {
+            background: #798EB8;
+            padding: 3px;
+            position: fixed;
+            font-size: 20px;
+            top: 0;
+            width: 100%;
+            color: #fff;
+        }
+
+        #messages {
+            list-style-type: none;
+            margin: 40px 0 0 0;
+            padding: 0;
+        }
+
+        #messages li {
+            padding: 5px 10px;
+        }
+
+        #messages li:nth-child(odd) {
+            background: #eee;
+        }
+
+        #room-list {
+            list-style-type: none;
+            margin: 40px 0 0 0;
+            padding: 0;
+        }
+
+        #room-list li {
+            padding: 5px 10px;
+        }
+
+        #room-list li:nth-child(odd) {
+            background: #eee;
+        }
+
+        .msgs {
+            display: none;
+        }
+
+        .rooms {
+            display: none;
+        }
+    </style>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+
+    <script>
+        $(function () {
+            const socket = io();
+            let room, name;
+            $('#name-form').submit(function () {
+                name = $('#m1').val();
+                socket.emit('set username', name);
+                $('.name').hide();
+                $('.rooms').show();
+                $('#room').text(`Rooms - (${name})`);
+                return false;
+            });
+            $('#room-form').submit(function () {
+                room = $('#m2').val();
+                socket.emit('new room', room);
+                $('#m2').val('');
+                $('.rooms').hide();
+                $('.msgs').show();
+                $('#room').text(room);
+                return false;
+            });
+            $('#msg-form').submit(function () {
+                socket.emit('chat message', { name, room, msg: $('#m3').val() });
+                $('#m3').val('');
+                return false;
+            });
+            socket.on('chat message', function (msg) {
+                $('#messages').append($('<li>').text(msg));
+            });
+            socket.on('rooms', function (rooms) {
+                try {
+                    $('#room-list').html('');
+                    if (rooms !== undefined && Object.getOwnPropertyNames(rooms).length > 0) {
+                        for (let room in rooms) {
+                            const sockets = rooms[room];
+                            let txt = `${room} - ` + sockets.join(', ');
+                            let li = $('#room-list').append($('<li>').append($(`<a name="${room}">`).text(txt)));
+                        }
+                    }
+                    $('#room-list a').click(function () {
+                        console.log(`Room ${this.name} clicked.`);
+                        socket.emit('join room', this.name);
+                        room = this.name;
+                        $('.rooms').hide();
+                        $('.msgs').show();
+                        $('#room').text(room);
+                    });
+                } catch (e) {
+                    console.log("There was an error getting the room list");
+                }
+            });
+        });
+    </script>
+</head>
+
+<body>
+    <div id="room">Rooms</div>
+    <form class="name" id="name-form">
+        <input id="m1" autocomplete="off" /><button>Enter a username</button>
     </form>
-  </body>
+    <ul id="room-list" class="rooms"></ul>
+    <form class="rooms" id="room-form" action="">
+        <input id="m2" autocomplete="off" /><button>Create and join a new room</button>
+    </form>
+    <div>
+        <ul id="messages" class="msgs"></ul>
+        <form class="msgs" id="msg-form" action="">
+            <input id="m3" autocomplete="off" /><button>Send</button>
+        </form>
+    </div>
+</body>
+
 </html>
